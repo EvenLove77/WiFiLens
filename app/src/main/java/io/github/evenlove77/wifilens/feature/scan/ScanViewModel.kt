@@ -91,17 +91,22 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startFullTest(context: Context) {
+    fun startFullTest(context: Context, simple: Boolean = false) {
         // 只测信号好的（信号 ≥ 40%）
         val networks = _uiState.value.networks.filter { it.signalPercent >= 40 }
         if (networks.isEmpty() || _uiState.value.isTesting) return
 
-        // 加载密码字典
-        val passwords = with(VaultSeedData) { PASSWORDS.toList() }
+        // 简单测试只测 3 个最常见密码，复杂测试测全部
+        val passwords = if (simple) {
+            listOf("12345678", "123456789", "88888888")
+        } else {
+            VaultSeedData.PASSWORDS.toList()
+        }
 
+        val mode = if (simple) "简单测试" else "复杂测试"
         _uiState.value = _uiState.value.copy(
             isTesting = true, testComplete = false,
-            testResults = emptyList(), testProgress = "已过滤 ${_uiState.value.networks.size - networks.size} 个弱信号，测试 ${networks.size} 个 WiFi",
+            testResults = emptyList(), testProgress = "$mode: ${networks.size} 个 WiFi",
             testCurrentWifi = "", testCurrentIndex = 0, testTotalWifi = networks.size
         )
 

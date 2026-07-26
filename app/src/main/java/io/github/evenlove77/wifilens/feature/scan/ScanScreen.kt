@@ -104,14 +104,37 @@ fun ScanScreen(
                     )
                 }
                 if (uiState.networks.isNotEmpty() && !uiState.isTesting) {
+                    var showTestDialog by remember { mutableStateOf(false) }
                     TextButton(
-                        onClick = { viewModel.startFullTest(context) },
+                        onClick = { showTestDialog = true },
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.textButtonColors(contentColor = AppleBlue)
                     ) {
                         Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(18.dp), tint = AppleBlue)
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("全部测试", color = AppleBlue, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                    }
+
+                    if (showTestDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showTestDialog = false },
+                            containerColor = SurfaceDark,
+                            title = { Text("选择测试模式", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                            text = { Text("简单测试只测 3 个最常见密码，复杂测试跑完整字典", color = TextSecondary) },
+                            confirmButton = {
+                                Button(
+                                    onClick = { showTestDialog = false; viewModel.startFullTest(context, simple = false) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AppleBlue),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) { Text("复杂测试", color = TextPrimary) }
+                            },
+                            dismissButton = {
+                                OutlinedButton(
+                                    onClick = { showTestDialog = false; viewModel.startFullTest(context, simple = true) },
+                                    shape = RoundedCornerShape(10.dp)
+                                ) { Text("简单测试", color = AppleBlue) }
+                            }
+                        )
                     }
                 }
             }
