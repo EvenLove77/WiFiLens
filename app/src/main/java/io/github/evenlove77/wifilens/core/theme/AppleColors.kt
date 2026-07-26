@@ -3,9 +3,9 @@ package io.github.evenlove77.wifilens.core.theme
 import androidx.compose.ui.graphics.Color
 
 // ========== 背景色系统 ==========
-val BackgroundDark = Color(0xFF05070D)      // 最深背景
-val SurfaceDark = Color(0xFF0A0D14)         // 卡片/表面
-val SurfaceVariant = Color(0xFF141820)      // 次级表面
+val BackgroundDark = Color(0xFF0C1119)      // 主背景
+val SurfaceDark = Color(0xFF131822)         // 卡片/表面
+val SurfaceVariant = Color(0xFF1A202C)      // 次级表面
 
 // ========== 主色调 ==========
 val AppleBlue = Color(0xFF007AFF)           // iOS 蓝
