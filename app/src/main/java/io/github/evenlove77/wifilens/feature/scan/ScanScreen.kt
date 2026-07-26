@@ -95,7 +95,10 @@ fun ScanScreen(
                         if (!uiState.hasPermission) {
                             permissionLauncher.launch(
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+                                    arrayOf(
+                                        Manifest.permission.NEARBY_WIFI_DEVICES,
+                                        Manifest.permission.ACCESS_FINE_LOCATION
+                                    )
                                 } else {
                                     arrayOf(
                                         Manifest.permission.ACCESS_FINE_LOCATION,

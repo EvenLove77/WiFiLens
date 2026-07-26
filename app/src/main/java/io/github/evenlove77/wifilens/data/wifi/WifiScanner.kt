@@ -25,19 +25,22 @@ class WifiScanner(private val context: Context) {
     }
 
     fun hasPermission(): Boolean {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            return ContextCompat.checkSelfPermission(
-                context, Manifest.permission.NEARBY_WIFI_DEVICES
-            ) == PackageManager.PERMISSION_GRANTED
-        }
-        return ContextCompat.checkSelfPermission(
+        // 同时检查 NEARBY_WIFI_DEVICES 和位置（vivo 等厂商可能需要两者）
+        val hasNearby = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.NEARBY_WIFI_DEVICES
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasLocation = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
+        return hasNearby || hasLocation
     }
 
     fun getRequiredPermissions(): Array<String> {
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+            arrayOf(
+                Manifest.permission.NEARBY_WIFI_DEVICES,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
         } else {
             arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
