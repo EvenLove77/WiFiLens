@@ -5,7 +5,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.evenlove77.wifilens.data.model.WiFiNetwork
 import io.github.evenlove77.wifilens.data.wifi.WifiScanner
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,15 +48,12 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isScanning = true, errorMessage = null)
 
-            // 给动画一点时间展示
-            delay(600)
-
             try {
-                val results = scanner.scan()
+                val results = scanner.scanAsync()
                 _uiState.value = _uiState.value.copy(
                     networks = results,
                     isScanning = false,
-                    errorMessage = if (results.isEmpty()) "未扫描到 WiFi 网络" else null
+                    errorMessage = if (results.isEmpty()) "未扫描到 WiFi 网络，请重试" else null
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
