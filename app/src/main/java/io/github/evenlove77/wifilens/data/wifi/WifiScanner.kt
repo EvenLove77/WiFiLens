@@ -77,6 +77,12 @@ class WifiScanner(private val context: Context) {
             @Suppress("DEPRECATION")
             val rawResults = wm.scanResults
             Log.d(TAG, "scanResults count=${rawResults?.size ?: 0}")
+            // 打印每条记录用于调试
+            rawResults?.forEachIndexed { i, r ->
+                val sid = r.wifiSsid?.toString()
+                    ?: @Suppress("DEPRECATION") r.SSID.removeSurrounding("\"")
+                Log.d(TAG, "  [$i] SSID='$sid' BSSID=${r.BSSID} level=${r.level}")
+            }
 
             val results = rawResults?.let { mapResults(it) } ?: emptyList()
 
@@ -98,11 +104,17 @@ class WifiScanner(private val context: Context) {
 
     private fun mapResults(results: List<ScanResult>): List<WiFiNetwork> {
         return results
-            .filter { !it.wifiSsid?.toString().isNullOrBlank() }
+            .filter { result ->
+                // 兼容新旧 API：wifiSsid 可能为 null，回退到 SSID
+                val ssid = result.wifiSsid?.toString()
+                    ?: @Suppress("DEPRECATION") result.SSID.removeSurrounding("\"")
+                ssid.isNotBlank()
+            }
             .map { result ->
+                val ssid = result.wifiSsid?.toString()
+                    ?: @Suppress("DEPRECATION") result.SSID.removeSurrounding("\"")
                 WiFiNetwork(
-                    ssid = result.wifiSsid?.toString()
-                        ?: @Suppress("DEPRECATION") result.SSID.removeSurrounding("\""),
+                    ssid = ssid,
                     bssid = result.BSSID,
                     rssi = result.level,
                     frequency = result.frequency,
