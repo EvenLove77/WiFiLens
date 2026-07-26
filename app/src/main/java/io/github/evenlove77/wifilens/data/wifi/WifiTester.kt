@@ -30,17 +30,22 @@ object WifiTester {
             var resolved = false
 
             val cb = object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
-                    checkConnection(wm)
-                }
                 override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                    checkConnection(wm)
+                    // 用 transportInfo 获取 SSID（API 33+，比 connectionInfo 更可靠）
+                    val wifiInfo = caps.transportInfo as? android.net.wifi.WifiInfo
+                    val connectedSsid = wifiInfo?.ssid?.removeSurrounding("\"") ?: ""
+                    Log.d(TAG, "caps SSID: '$connectedSsid', target: '$ssid'")
+                    if (!resolved && connectedSsid == ssid) {
+                        resolved = true; cleanup(); cont.resume(true)
+                    }
                 }
 
-                fun checkConnection(wm: android.net.wifi.WifiManager) {
+                override fun onAvailable(network: Network) {
+                    // 兜底：用 connectionInfo
+                    @Suppress("DEPRECATION")
                     val info = wm.connectionInfo
                     val connectedSsid = info?.ssid?.removeSurrounding("\"") ?: ""
-                    Log.d(TAG, "connected SSID: '$connectedSsid', target: '$ssid'")
+                    Log.d(TAG, "available SSID: '$connectedSsid', target: '$ssid'")
                     if (!resolved && connectedSsid == ssid) {
                         resolved = true; cleanup(); cont.resume(true)
                     }
