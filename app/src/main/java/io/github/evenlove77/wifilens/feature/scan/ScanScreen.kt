@@ -16,13 +16,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.animation.core.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.Brush
@@ -205,27 +210,82 @@ fun ScanScreen(
 
             // ===== 主内容区 =====
             if (uiState.networks.isNotEmpty()) {
-                PullToRefreshBox(
-                    isRefreshing = uiState.isScanning,
-                    onRefresh = {
-                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        if (!uiState.hasPermission) {
-                            val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.ACCESS_FINE_LOCATION)
-                            } else {
-                                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                // 手动下拉刷新：跟踪偏移 + 列表跟随手指
+                var pullOffset by remember { mutableStateOf(0f) }
+                val threshold = 100f
+                val maxPull = 200f
+
+                val pullConnection = remember {
+                    object : NestedScrollConnection {
+                        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                            // 列表在顶部且继续下拉时，消费滚动转为下拉偏移
+                            if (source == NestedScrollSource.UserInput && available.y < 0 && pullOffset > 0) {
+                                val consumed = available.y
+                                pullOffset = (pullOffset + consumed).coerceIn(0f, maxPull)
+                                return Offset(0f, consumed)
                             }
-                            permissionLauncher.launch(perms)
-                        } else {
-                            viewModel.scan()
+                            return Offset.Zero
                         }
-                    },
-                    modifier = Modifier.weight(1f),
-                    indicator = { IosPullIndicator(isRefreshing = uiState.isScanning) }
-                ) {
+
+                        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                            // 列表到顶后继续下拉
+                            if (source == NestedScrollSource.UserInput && available.y < 0) {
+                                pullOffset = (pullOffset - available.y * 0.5f).coerceIn(0f, maxPull)
+                                return Offset(0f, -available.y)
+                            }
+                            return Offset.Zero
+                        }
+
+                        override suspend fun onPreFling(available: Velocity): Velocity {
+                            if (pullOffset >= threshold) {
+                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                pullOffset = 0f
+                                if (!uiState.hasPermission) {
+                                    val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.ACCESS_FINE_LOCATION)
+                                    } else {
+                                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                                    }
+                                    permissionLauncher.launch(perms)
+                                } else {
+                                    viewModel.scan()
+                                }
+                            } else {
+                                pullOffset = 0f
+                            }
+                            return Velocity.Zero
+                        }
+                    }
+                }
+
+                Box(modifier = Modifier.weight(1f).nestedScroll(pullConnection)) {
+                    // 下拉指示器
+                    if (pullOffset > 8f || uiState.isScanning) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.TopCenter) {
+                            if (uiState.isScanning) {
+                                IosPullIndicator(isRefreshing = true)
+                            } else {
+                                Row(
+                                    modifier = Modifier.padding(4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    repeat(3) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .clip(CircleShape)
+                                                .background(AppleBlue.copy(alpha = (pullOffset / threshold).coerceIn(0.2f, 1f)))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
+                            .graphicsLayer { translationY = pullOffset }
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = SpacingMD, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(SpacingSM)
