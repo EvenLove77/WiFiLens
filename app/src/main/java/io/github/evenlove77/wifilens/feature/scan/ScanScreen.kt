@@ -197,7 +197,7 @@ fun ScanScreen(
                 visibleCount = 0
                 if (uiState.networks.isNotEmpty()) {
                     uiState.networks.forEachIndexed { index, _ ->
-                        delay(80L)
+                        delay(40L)
                         visibleCount = index + 1
                     }
                 }
@@ -232,21 +232,32 @@ fun ScanScreen(
                             items = uiState.networks,
                             key = { _, network -> network.bssid }
                         ) { index, network ->
+                            val cardModifier = Modifier.let { m ->
+                                if (uiState.isScanning) m else m // 刷新中不允许点击
+                            }
                             if (allCardsShown) {
-                                WiFiNetworkCard(network = network, onClick = {
-                                    onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
-                                })
+                                WiFiNetworkCard(
+                                    network = network,
+                                    enabled = !uiState.isScanning,
+                                    onClick = {
+                                        onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
+                                    }
+                                )
                             } else {
                                 androidx.compose.animation.AnimatedVisibility(
                                     visible = index < visibleCount,
                                     enter = slideInVertically(
-                                        animationSpec = spring(dampingRatio = 0.7f, stiffness = 300f),
-                                        initialOffsetY = { it / 2 }
-                                    ) + fadeIn(animationSpec = tween(300))
+                                        animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
+                                        initialOffsetY = { -it }
+                                    ) + fadeIn(animationSpec = tween(250))
                                 ) {
-                                    WiFiNetworkCard(network = network, onClick = {
-                                        onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
-                                    })
+                                    WiFiNetworkCard(
+                                        network = network,
+                                        enabled = !uiState.isScanning,
+                                        onClick = {
+                                            onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -303,11 +314,12 @@ private fun IosPullIndicator(isRefreshing: Boolean) {
     val dots = remember { listOf(0, 1, 2) }
     val transition = rememberInfiniteTransition(label = "dots")
 
-    Row(
-        modifier = Modifier.padding(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        Row(
+            modifier = Modifier.padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         dots.forEach { index ->
             val scale by transition.animateFloat(
                 initialValue = 0.5f,
@@ -327,13 +339,15 @@ private fun IosPullIndicator(isRefreshing: Boolean) {
             )
         }
     }
+    }
 }
 
 @Composable
 fun WiFiNetworkCard(
     network: WiFiNetwork,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     var pressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -349,10 +363,12 @@ fun WiFiNetworkCard(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
-                        pressed = true
-                        tryAwaitRelease()
-                        pressed = false
-                        onClick()
+                        if (enabled) {
+                            pressed = true
+                            tryAwaitRelease()
+                            pressed = false
+                            onClick()
+                        }
                     }
                 )
             },
