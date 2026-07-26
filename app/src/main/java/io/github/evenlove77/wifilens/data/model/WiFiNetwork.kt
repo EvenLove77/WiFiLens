@@ -1,8 +1,11 @@
 package io.github.evenlove77.wifilens.data.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * WiFi 网络扫描结果
  */
+@Immutable
 data class WiFiNetwork(
     val ssid: String,
     val bssid: String,

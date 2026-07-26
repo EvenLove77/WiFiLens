@@ -10,7 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -192,6 +192,7 @@ fun ScanScreen(
 
             // ===== iOS 风格卡片逐个弹入动画 =====
             var visibleCount by remember { mutableIntStateOf(0) }
+            val allCardsShown = visibleCount >= uiState.networks.size && uiState.networks.isNotEmpty()
             LaunchedEffect(uiState.networks) {
                 visibleCount = 0
                 if (uiState.networks.isNotEmpty()) {
@@ -227,18 +228,26 @@ fun ScanScreen(
                         contentPadding = PaddingValues(horizontal = SpacingMD, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(SpacingSM)
                     ) {
-                        items(items = uiState.networks, key = { it.bssid }) { network ->
-                            val index = uiState.networks.indexOf(network)
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = index < visibleCount,
-                                enter = slideInVertically(
-                                    animationSpec = spring(dampingRatio = 0.7f, stiffness = 300f),
-                                    initialOffsetY = { it / 2 }
-                                ) + fadeIn(animationSpec = tween(300))
-                            ) {
+                        itemsIndexed(
+                            items = uiState.networks,
+                            key = { _, network -> network.bssid }
+                        ) { index, network ->
+                            if (allCardsShown) {
                                 WiFiNetworkCard(network = network, onClick = {
                                     onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
                                 })
+                            } else {
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = index < visibleCount,
+                                    enter = slideInVertically(
+                                        animationSpec = spring(dampingRatio = 0.7f, stiffness = 300f),
+                                        initialOffsetY = { it / 2 }
+                                    ) + fadeIn(animationSpec = tween(300))
+                                ) {
+                                    WiFiNetworkCard(network = network, onClick = {
+                                        onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
+                                    })
+                                }
                             }
                         }
                         item { Spacer(modifier = Modifier.height(80.dp)) }

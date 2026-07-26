@@ -3,6 +3,7 @@ package io.github.evenlove77.wifilens.feature.scan
 import android.app.Application
 import android.content.Context
 import android.util.Log
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.evenlove77.wifilens.data.database.CryptoManager
@@ -21,6 +22,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+@Immutable
 data class TestResult(
     val ssid: String,
     val password: String
