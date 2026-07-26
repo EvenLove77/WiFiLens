@@ -23,8 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -349,9 +349,10 @@ fun WiFiNetworkCard(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    var pressed by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
+        targetValue = if (isPressed) 0.96f else 1f,
         animationSpec = spring(dampingRatio = 0.4f, stiffness = 600f),
         label = "cardScale"
     )
@@ -360,18 +361,12 @@ fun WiFiNetworkCard(
         modifier = modifier
             .fillMaxWidth()
             .scale(scale)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        if (enabled) {
-                            pressed = true
-                            tryAwaitRelease()
-                            pressed = false
-                            onClick()
-                        }
-                    }
-                )
-            },
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = enabled,
+                onClick = onClick
+            ),
         backgroundColor = SurfaceDark.copy(alpha = 0.6f),
         borderColor = GlassBorder.copy(alpha = 0.3f)
     ) {
