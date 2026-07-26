@@ -195,7 +195,7 @@ fun ScanScreen(
                 ) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = SpacingMD, vertical = SpacingSM),
+                        contentPadding = PaddingValues(horizontal = SpacingMD, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(SpacingSM)
                     ) {
                         items(items = uiState.networks, key = { it.bssid }) { network ->
