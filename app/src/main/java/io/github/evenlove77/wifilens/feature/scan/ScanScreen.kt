@@ -1,37 +1,37 @@
 package io.github.evenlove77.wifilens.feature.scan
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.*
-import androidx.compose.animation.core.*
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -39,11 +39,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.evenlove77.wifilens.core.component.*
-import kotlinx.coroutines.delay
 import io.github.evenlove77.wifilens.core.theme.*
 import io.github.evenlove77.wifilens.data.model.WiFiNetwork
+import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ScanScreen(
     onNavigateToDetail: (ssid: String, bssid: String, rssi: Int, frequency: Int, capabilities: String) -> Unit,
@@ -60,9 +60,25 @@ fun ScanScreen(
         if (permissions.values.all { it }) viewModel.scan()
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.onScreenEnter()
-    }
+    LaunchedEffect(Unit) { viewModel.onScreenEnter() }
+
+    // ===== 下拉刷新状态 =====
+    val pullState = rememberPullRefreshState(
+        refreshing = uiState.isScanning,
+        onRefresh = {
+            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            if (!uiState.hasPermission) {
+                val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.ACCESS_FINE_LOCATION)
+                } else {
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                }
+                permissionLauncher.launch(perms)
+            } else {
+                viewModel.scan()
+            }
+        }
+    )
 
     Box(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -84,12 +100,9 @@ fun ScanScreen(
                             uiState.isScanning -> "正在扫描..."
                             else -> "附近网络"
                         },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        style = MaterialTheme.typography.bodyMedium, color = TextSecondary
                     )
                 }
-
-                // 全部测试按钮
                 if (uiState.networks.isNotEmpty() && !uiState.isTesting) {
                     TextButton(
                         onClick = { viewModel.startFullTest(context) },
@@ -113,13 +126,7 @@ fun ScanScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(color = AppleBlue, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                             Spacer(modifier = Modifier.width(SpacingSM))
-                            Text(
-                                "正在测试: ${uiState.testCurrentWifi}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextPrimary,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Text("正在测试: ${uiState.testCurrentWifi}", style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                             TextButton(onClick = { viewModel.stopTest() }) {
                                 Text("停止", color = ErrorRed, fontWeight = FontWeight.Medium)
                             }
@@ -127,9 +134,7 @@ fun ScanScreen(
                         Spacer(modifier = Modifier.height(SpacingSM))
                         LinearProgressIndicator(
                             progress = { if (uiState.testTotalWifi > 0) uiState.testCurrentIndex.toFloat() / uiState.testTotalWifi else 0f },
-                            modifier = Modifier.fillMaxWidth(),
-                            color = AppleBlue,
-                            trackColor = GlassBorder
+                            modifier = Modifier.fillMaxWidth(), color = AppleBlue, trackColor = GlassBorder
                         )
                     }
                 }
@@ -152,22 +157,14 @@ fun ScanScreen(
                         }
                         Spacer(modifier = Modifier.height(SpacingSM))
                         uiState.testResults.forEach { result ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(result.ssid, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, modifier = Modifier.weight(1f))
                                 Text(result.password, style = MaterialTheme.typography.bodyMedium, color = AppleBlue, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.width(SpacingSM))
-                                IconButton(
-                                    onClick = {
-                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("password", result.password))
-                                    },
-                                    modifier = Modifier.size(20.dp)
-                                ) {
+                                IconButton(onClick = {
+                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    cm.setPrimaryClip(ClipData.newPlainText("pwd", result.password))
+                                }, modifier = Modifier.size(20.dp)) {
                                     Icon(Icons.Rounded.ContentCopy, "复制", tint = AppleBlue, modifier = Modifier.size(14.dp))
                                 }
                             }
@@ -182,10 +179,7 @@ fun ScanScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = SpacingMD, vertical = SpacingSM),
                     backgroundColor = SurfaceDark.copy(alpha = 0.6f)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(SpacingMD),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(modifier = Modifier.padding(SpacingMD), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Shield, null, tint = SuccessGreen, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(SpacingSM))
                         Text("未发现弱密码 — 网络安全", style = MaterialTheme.typography.bodyMedium, color = TextSecondary, modifier = Modifier.weight(1f))
@@ -196,7 +190,7 @@ fun ScanScreen(
                 }
             }
 
-            // ===== iOS 风格卡片逐个弹入动画 =====
+            // ===== iOS 瀑布动画 =====
             var visibleCount by remember { mutableIntStateOf(0) }
             val allCardsShown = visibleCount >= uiState.networks.size && uiState.networks.isNotEmpty()
             LaunchedEffect(uiState.networks) {
@@ -209,78 +203,10 @@ fun ScanScreen(
                 }
             }
 
-            // ===== 主内容区 =====
+            // ===== WiFi 列表 + 下拉刷新 =====
             if (uiState.networks.isNotEmpty()) {
-                val listState = rememberLazyListState()
-                var pullOffset by remember { mutableStateOf(0f) }
-                val threshold = 120f
-                val maxPull = 200f
-                val atTop = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
-
-                val pullConnection = remember {
-                    object : NestedScrollConnection {
-                        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                            // 回弹中：消费向上滚动来减少 offset
-                            if (pullOffset > 0 && available.y > 0) {
-                                pullOffset = (pullOffset - available.y).coerceAtLeast(0f)
-                                return available
-                            }
-                            return Offset.Zero
-                        }
-
-                        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                            // LazyColumn 到顶后，剩余的下拉量转为 pullOffset
-                            if (source == NestedScrollSource.UserInput && available.y < 0) {
-                                pullOffset = (pullOffset - available.y * 0.4f).coerceIn(0f, maxPull)
-                                return Offset(0f, -available.y)
-                            }
-                            return Offset.Zero
-                        }
-
-                        override suspend fun onPreFling(available: Velocity): Velocity {
-                            if (pullOffset >= threshold) {
-                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                pullOffset = 0f
-                                if (!uiState.hasPermission) {
-                                    val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.ACCESS_FINE_LOCATION)
-                                    } else {
-                                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                                    }
-                                    permissionLauncher.launch(perms)
-                                } else {
-                                    viewModel.scan()
-                                }
-                            } else {
-                                pullOffset = 0f
-                            }
-                            return Velocity.Zero
-                        }
-                    }
-                }
-
-                Box(modifier = Modifier.weight(1f).nestedScroll(pullConnection)) {
-                    // iOS 圆点指示器
-                    if ((atTop && pullOffset > 8f) || uiState.isScanning) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.TopCenter) {
-                            if (uiState.isScanning) {
-                                IosPullIndicator(isRefreshing = true)
-                            } else {
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(4.dp)) {
-                                    repeat(3) {
-                                        Box(
-                                            modifier = Modifier.size(6.dp).clip(CircleShape)
-                                                .background(AppleBlue.copy(alpha = (pullOffset / threshold).coerceIn(0.15f, 1f)))
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
+                Box(modifier = Modifier.weight(1f).pullRefresh(pullState)) {
                     LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize().graphicsLayer { translationY = pullOffset },
                         contentPadding = PaddingValues(horizontal = SpacingMD, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(SpacingSM)
                     ) {
@@ -303,9 +229,18 @@ fun ScanScreen(
                         }
                         item { Spacer(modifier = Modifier.height(80.dp)) }
                     }
+
+                    // 下拉刷新指示器（Material 风格）
+                    PullRefreshIndicator(
+                        refreshing = uiState.isScanning,
+                        state = pullState,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        backgroundColor = SurfaceDark,
+                        contentColor = AppleBlue
+                    )
                 }
             } else {
-                // 无数据：扫描球居中（带淡出动画）
+                // 无数据：扫描球居中
                 AnimatedVisibility(
                     visible = uiState.networks.isEmpty(),
                     exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.9f, animationSpec = tween(200))
@@ -314,17 +249,12 @@ fun ScanScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             LiquidGlassScanBall(isScanning = uiState.isScanning, ballSize = IconSizeScanBall)
                             Spacer(modifier = Modifier.height(SpacingLG))
-                            if (uiState.isScanning) {
-                                Text("正在扫描周围 WiFi...", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
-                            } else if (uiState.errorMessage != null) {
-                                Text(uiState.errorMessage ?: "", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                            } else {
-                                Text("下拉刷新扫描附近 WiFi", style = MaterialTheme.typography.bodyMedium, color = TextTertiary)
-                            }
+                            if (uiState.isScanning) Text("正在扫描周围 WiFi...", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
+                            else if (uiState.errorMessage != null) Text(uiState.errorMessage ?: "", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                            else Text("下拉刷新扫描附近 WiFi", style = MaterialTheme.typography.bodyMedium, color = TextTertiary)
                         }
                     }
                 }
-
                 Box(modifier = Modifier.fillMaxWidth().padding(bottom = 100.dp), contentAlignment = Alignment.Center) {
                     GlassButton(text = "扫描附近 WiFi", onClick = {
                         if (!uiState.hasPermission) {
@@ -344,71 +274,18 @@ fun ScanScreen(
     }
 }
 
-/**
- * iOS 风格三点下拉刷新指示器
- */
 @Composable
-private fun IosPullIndicator(isRefreshing: Boolean) {
-    if (!isRefreshing) return
-
-    val dots = remember { listOf(0, 1, 2) }
-    val transition = rememberInfiniteTransition(label = "dots")
-
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-        Row(
-            modifier = Modifier.padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-        dots.forEach { index ->
-            val scale by transition.animateFloat(
-                initialValue = 0.5f,
-                targetValue = 1.2f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(400, delayMillis = index * 150),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "dot$index"
-            )
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .scale(scale)
-                    .clip(CircleShape)
-                    .background(AppleBlue)
-            )
-        }
-    }
-    }
-}
-
-@Composable
-fun WiFiNetworkCard(
-    network: WiFiNetwork,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-) {
+fun WiFiNetworkCard(network: WiFiNetwork, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.96f else 1f,
-        animationSpec = spring(dampingRatio = 0.4f, stiffness = 600f),
-        label = "cardScale"
+        animationSpec = spring(dampingRatio = 0.4f, stiffness = 600f), label = "cardScale"
     )
 
     GlassCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            ),
-        backgroundColor = SurfaceDark.copy(alpha = 0.6f),
-        borderColor = GlassBorder.copy(alpha = 0.3f)
+        modifier = modifier.fillMaxWidth().scale(scale).clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick),
+        backgroundColor = SurfaceDark.copy(alpha = 0.6f), borderColor = GlassBorder.copy(alpha = 0.3f)
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(SpacingMD), verticalAlignment = Alignment.CenterVertically) {
             WifiSignalIcon(signalLevel = network.signalLevel, size = 28.dp)
@@ -420,8 +297,7 @@ fun WiFiNetworkCard(
             Column(horizontalAlignment = Alignment.End) {
                 Text("${network.rssi} dBm", style = MaterialTheme.typography.labelMedium, color = TextSecondary, fontSize = 13.sp)
                 Text("${network.signalPercent}%", style = MaterialTheme.typography.labelSmall,
-                    color = when { network.signalPercent >= 70 -> SignalExcellent; network.signalPercent >= 40 -> SignalFair; else -> SignalWeak },
-                    fontWeight = FontWeight.SemiBold)
+                    color = when { network.signalPercent >= 70 -> SignalExcellent; network.signalPercent >= 40 -> SignalFair; else -> SignalWeak }, fontWeight = FontWeight.SemiBold)
             }
             Spacer(modifier = Modifier.width(SpacingSM))
             Icon(Icons.Rounded.ChevronRight, null, tint = TextTertiary, modifier = Modifier.size(20.dp))
