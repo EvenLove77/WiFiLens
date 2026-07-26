@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.evenlove77.wifilens.core.component.*
+import kotlinx.coroutines.delay
 import io.github.evenlove77.wifilens.core.theme.*
 import io.github.evenlove77.wifilens.data.model.WiFiNetwork
 
@@ -176,6 +177,18 @@ fun ScanScreen(
                 }
             }
 
+            // ===== iOS 风格卡片逐个弹入动画 =====
+            var visibleCount by remember { mutableIntStateOf(0) }
+            LaunchedEffect(uiState.networks) {
+                visibleCount = 0
+                if (uiState.networks.isNotEmpty()) {
+                    uiState.networks.forEachIndexed { index, _ ->
+                        delay(80L)
+                        visibleCount = index + 1
+                    }
+                }
+            }
+
             // ===== 主内容区 =====
             if (uiState.networks.isNotEmpty()) {
                 PullToRefreshBox(
@@ -202,9 +215,18 @@ fun ScanScreen(
                         verticalArrangement = Arrangement.spacedBy(SpacingSM)
                     ) {
                         items(items = uiState.networks, key = { it.bssid }) { network ->
-                            WiFiNetworkCard(network = network, onClick = {
-                                onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
-                            })
+                            val index = uiState.networks.indexOf(network)
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = index < visibleCount,
+                                enter = slideInVertically(
+                                    animationSpec = spring(dampingRatio = 0.7f, stiffness = 300f),
+                                    initialOffsetY = { it / 2 }
+                                ) + fadeIn(animationSpec = tween(300))
+                            ) {
+                                WiFiNetworkCard(network = network, onClick = {
+                                    onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
+                                })
+                            }
                         }
                         item { Spacer(modifier = Modifier.height(80.dp)) }
                     }
