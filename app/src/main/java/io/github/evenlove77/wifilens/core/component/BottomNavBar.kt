@@ -49,7 +49,7 @@ fun AppleBottomNavBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 40.dp, vertical = 10.dp),
+                .padding(horizontal = 40.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -69,15 +69,14 @@ fun AppleBottomNavBar(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) { onItemClick(item.route) }
-                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
                 ) {
                     Icon(
                         imageVector = item.icon,
                         contentDescription = item.title,
                         tint = color,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(22.dp)
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = item.title,
                         color = color,
@@ -86,10 +85,10 @@ fun AppleBottomNavBar(
                         letterSpacing = 0.sp
                     )
                     if (selected) {
-                        Spacer(modifier = Modifier.height(3.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Box(
                             modifier = Modifier
-                                .size(4.dp)
+                                .size(3.dp)
                                 .clip(CircleShape)
                                 .background(
                                     brush = Brush.horizontalGradient(
