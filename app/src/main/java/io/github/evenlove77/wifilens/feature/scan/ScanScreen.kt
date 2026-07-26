@@ -23,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -145,12 +147,23 @@ fun ScanScreen(
                         Spacer(modifier = Modifier.height(SpacingSM))
                         uiState.testResults.forEach { result ->
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(result.ssid, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, modifier = Modifier.weight(1f))
                                 Text(result.password, style = MaterialTheme.typography.bodyMedium, color = AppleBlue, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.width(SpacingSM))
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("password", result.password))
+                                    },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(Icons.Rounded.ContentCopy, "复制", tint = AppleBlue, modifier = Modifier.size(14.dp))
+                                }
                             }
                         }
                     }
@@ -232,17 +245,22 @@ fun ScanScreen(
                     }
                 }
             } else {
-                // 无数据：扫描球居中
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        LiquidGlassScanBall(isScanning = uiState.isScanning, ballSize = IconSizeScanBall)
-                        Spacer(modifier = Modifier.height(SpacingLG))
-                        if (uiState.isScanning) {
-                            Text("正在扫描周围 WiFi...", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
-                        } else if (uiState.errorMessage != null) {
-                            Text(uiState.errorMessage ?: "", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                        } else {
-                            Text("下拉刷新扫描附近 WiFi", style = MaterialTheme.typography.bodyMedium, color = TextTertiary)
+                // 无数据：扫描球居中（带淡出动画）
+                AnimatedVisibility(
+                    visible = uiState.networks.isEmpty(),
+                    exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.9f, animationSpec = tween(200))
+                ) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            LiquidGlassScanBall(isScanning = uiState.isScanning, ballSize = IconSizeScanBall)
+                            Spacer(modifier = Modifier.height(SpacingLG))
+                            if (uiState.isScanning) {
+                                Text("正在扫描周围 WiFi...", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
+                            } else if (uiState.errorMessage != null) {
+                                Text(uiState.errorMessage ?: "", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                            } else {
+                                Text("下拉刷新扫描附近 WiFi", style = MaterialTheme.typography.bodyMedium, color = TextTertiary)
+                            }
                         }
                     }
                 }
@@ -308,8 +326,27 @@ fun WiFiNetworkCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.4f, stiffness = 600f),
+        label = "cardScale"
+    )
+
     GlassCard(
-        modifier = modifier.fillMaxWidth().clickable { onClick() },
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        pressed = true
+                        tryAwaitRelease()
+                        pressed = false
+                        onClick()
+                    }
+                )
+            },
         backgroundColor = SurfaceDark.copy(alpha = 0.6f),
         borderColor = GlassBorder.copy(alpha = 0.3f)
     ) {

@@ -11,8 +11,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,8 +47,24 @@ fun DetailScreen(
         viewModel.load(ssid, bssid, rssi, frequency, capabilities)
     }
 
+    // 右滑返回
+    var dragOffset by remember { mutableStateOf(0f) }
+
     Box(
-        modifier = Modifier.fillMaxSize().background(BackgroundDark)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundDark)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        if (dragOffset > 120f) onNavigateBack()
+                        dragOffset = 0f
+                    },
+                    onHorizontalDrag = { _, dragAmount ->
+                        dragOffset += dragAmount
+                    }
+                )
+            }
     ) {
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
