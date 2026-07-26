@@ -158,7 +158,7 @@ fun DetailScreen(
                                 modifier = Modifier.fillMaxWidth(), color = AppleBlue, trackColor = GlassBorder
                             )
                             Spacer(modifier = Modifier.height(SpacingSM))
-                            Text("${uiState.testIndex} / ${uiState.testTotal}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            Text("${uiState.testIndex} / ${uiState.testTotal}  ·  ${uiState.testCurrentPwd}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                         }
 
                         // 测试结果

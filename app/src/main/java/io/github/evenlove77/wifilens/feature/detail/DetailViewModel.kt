@@ -24,6 +24,7 @@ data class DetailUiState(
     val isTesting: Boolean = false,
     val testIndex: Int = -1,
     val testTotal: Int = 0,
+    val testCurrentPwd: String = "",
     val testResult: String? = null
 )
 
@@ -77,7 +78,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
 
         viewModelScope.launch {
             for ((index, candidate) in candidates.withIndex()) {
-                _uiState.value = _uiState.value.copy(testIndex = index + 1)
+                _uiState.value = _uiState.value.copy(testIndex = index + 1, testCurrentPwd = candidate.password)
 
                 val success = WifiTester.tryPassword(context, ssid, candidate.password)
 
