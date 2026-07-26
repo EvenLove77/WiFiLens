@@ -68,39 +68,35 @@ class WifiScanner(private val context: Context) {
         }
 
         return try {
-            // 策略：先读缓存（系统/WiFi设置/其他App最近的扫描结果）
-            @Suppress("DEPRECATION")
-            var rawResults = wm.scanResults
-            Log.d(TAG, "cached scanResults count=${rawResults?.size ?: 0}")
+            // vivo 手机会拦截 startScan()，改用轮询等待系统扫描结果
+            var attempts = 0
+            var rawResults: List<ScanResult>? = null
 
-            // 缓存为空才触发新扫描（避免撞上 Android 14 限频：4次/2分钟）
-            if (rawResults.isNullOrEmpty()) {
+            while (attempts < 6) {
                 @Suppress("DEPRECATION")
-                val scanTriggered = wm.startScan()
-                Log.d(TAG, "startScan triggered=$scanTriggered")
+                rawResults = wm.scanResults
+                val count = rawResults?.size ?: 0
+                Log.d(TAG, "attempt $attempts: scanResults count=$count")
 
-                if (scanTriggered) {
-                    // 等待扫描完成
-                    delay(3000)
+                if (count > 0) break
 
+                // 第一次尝试触发扫描（即使被拦截也无所谓，继续轮询）
+                if (attempts == 0) {
                     @Suppress("DEPRECATION")
-                    rawResults = wm.scanResults
-                    Log.d(TAG, "after scan: count=${rawResults?.size ?: 0}")
-                } else {
-                    Log.w(TAG, "扫描被限频，等待30秒后重试")
-                    // 被限频，等一会再试缓存
-                    delay(1500)
-                    @Suppress("DEPRECATION")
-                    rawResults = wm.scanResults
+                    val triggered = wm.startScan()
+                    Log.d(TAG, "startScan triggered=$triggered")
                 }
+
+                delay(2000)
+                attempts++
             }
 
             @Suppress("DEPRECATION")
             val results = rawResults?.let { mapResults(it) } ?: emptyList()
 
             if (results.isEmpty()) {
-                Log.w(TAG, "扫描结果为空")
-                ScanResult2(emptyList(), "未扫描到 WiFi 网络，请稍后重试")
+                Log.w(TAG, "扫描结果为空（vivo 可能限制了 WiFi 扫描）")
+                ScanResult2(emptyList(), "未扫描到 WiFi。请尝试：打开系统WiFi设置页面后再返回App")
             } else {
                 Log.d(TAG, "扫描到 ${results.size} 个 WiFi")
                 ScanResult2(results)
