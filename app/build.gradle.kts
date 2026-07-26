@@ -40,7 +40,7 @@ android {
 androidComponents {
     onVariants { variant ->
         variant.outputs.forEach { output ->
-            output.outputFileName.set("WiFiLens-${variant.name}.apk")
+            output.outputFileName.set("WiFiLens-Android.apk")
         }
     }
 }
