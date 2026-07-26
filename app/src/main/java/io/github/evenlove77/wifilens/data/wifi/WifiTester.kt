@@ -75,9 +75,25 @@ object WifiTester {
                 wm.removeNetworkSuggestions(listOf(suggestion))
             }
 
-            // 8 秒超时
+            // 轮询兜底：每 0.5 秒检查 connectionInfo（共 8 秒）
             kotlinx.coroutines.GlobalScope.launch {
-                delay(8000)
+                repeat(16) {
+                    delay(500)
+                    if (resolved) return@launch
+                    @Suppress("DEPRECATION")
+                    val info = wm.connectionInfo
+                    val connectedSsid = info?.ssid?.removeSurrounding("\"") ?: ""
+                    if (connectedSsid.isNotBlank()) {
+                        Log.d(TAG, "poll SSID: '$connectedSsid', target: '$ssid'")
+                    }
+                    if (!resolved && connectedSsid == ssid) {
+                        resolved = true
+                        cm.unregisterNetworkCallback(cb)
+                        wm.removeNetworkSuggestions(listOf(suggestion))
+                        cont.resume(true)
+                        return@launch
+                    }
+                }
                 if (!resolved) {
                     resolved = true
                     cm.unregisterNetworkCallback(cb)
