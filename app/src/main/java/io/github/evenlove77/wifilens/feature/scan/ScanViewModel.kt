@@ -90,7 +90,8 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startFullTest(context: Context) {
-        val networks = _uiState.value.networks
+        // 只测信号好的（RSSI >= -75 dBm，差不多两格以上）
+        val networks = _uiState.value.networks.filter { it.rssi >= -75 }
         if (networks.isEmpty() || _uiState.value.isTesting) return
 
         // 加载密码字典
@@ -98,7 +99,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.value = _uiState.value.copy(
             isTesting = true, testComplete = false,
-            testResults = emptyList(), testProgress = "准备测试...",
+            testResults = emptyList(), testProgress = "已过滤 ${_uiState.value.networks.size - networks.size} 个弱信号，测试 ${networks.size} 个 WiFi",
             testCurrentWifi = "", testCurrentIndex = 0, testTotalWifi = networks.size
         )
 
