@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -122,55 +123,50 @@ fun DetailScreen(
 
                 Spacer(modifier = Modifier.height(SpacingLG))
 
-                // ===== 密码测试区域 =====
+                // ===== 密码推荐区域 =====
                 GlassCard(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = SpacingMD),
                     backgroundColor = SurfaceDark.copy(alpha = 0.6f)
                 ) {
                     Column(modifier = Modifier.padding(SpacingMD)) {
-                        Text("弱密码测试", style = MaterialTheme.typography.headlineMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("${uiState.candidates.size} 个候选密码", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Key, null, tint = AppleBlue, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(SpacingSM))
+                            Text("最可能的密码", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text("点击复制，去系统 WiFi 设置粘贴试试", style = MaterialTheme.typography.bodySmall, color = TextTertiary)
 
                         Spacer(modifier = Modifier.height(SpacingMD))
 
-                        // 开始测试按钮
-                        Button(
-                            onClick = { viewModel.startTest(context) },
-                            enabled = !uiState.isTesting,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = AppleBlue),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            if (uiState.isTesting) {
-                                CircularProgressIndicator(color = TextPrimary, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        uiState.candidates.take(10).forEachIndexed { index, candidate ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(SurfaceVariant.copy(alpha = 0.4f))
+                                    .clickable {
+                                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        cm.setPrimaryClip(ClipData.newPlainText("pwd", candidate.password))
+                                        Toast.makeText(context, "已复制: ${candidate.password}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(horizontal = SpacingMD, vertical = SpacingSM),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("${index + 1}", style = MaterialTheme.typography.labelMedium, color = TextTertiary, modifier = Modifier.width(24.dp))
+                                Text(candidate.password, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                                Text(candidate.label, style = MaterialTheme.typography.labelSmall, color = TextTertiary, fontSize = 10.sp)
                                 Spacer(modifier = Modifier.width(SpacingSM))
+                                Icon(Icons.Rounded.ContentCopy, "复制", tint = AppleBlue, modifier = Modifier.size(16.dp))
                             }
-                            Text(if (uiState.isTesting) "测试中..." else "开始测试", color = TextPrimary)
+                            if (index < uiState.candidates.take(10).lastIndex) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                            }
                         }
 
-                        // 测试进度
-                        if (uiState.isTesting) {
-                            Spacer(modifier = Modifier.height(SpacingMD))
-                            LinearProgressIndicator(
-                                progress = { uiState.testIndex.toFloat() / uiState.testTotal },
-                                modifier = Modifier.fillMaxWidth(),
-                                color = AppleBlue,
-                                trackColor = GlassBorder,
-                            )
+                        if (uiState.candidates.size > 10) {
                             Spacer(modifier = Modifier.height(SpacingSM))
-                            Text("${uiState.testIndex} / ${uiState.testTotal}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                        }
-
-                        // 测试结果
-                        uiState.testResult?.let { result ->
-                            Spacer(modifier = Modifier.height(SpacingMD))
-                            Text(
-                                result,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = if (result.startsWith("密码已找到")) SuccessGreen else TextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Text("... 还有 ${uiState.candidates.size - 10} 个候选密码", style = MaterialTheme.typography.bodySmall, color = TextTertiary)
                         }
                     }
                 }
