@@ -17,10 +17,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.animation.core.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -191,7 +193,8 @@ fun ScanScreen(
                             viewModel.scan()
                         }
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    indicator = { IosPullIndicator(isRefreshing = uiState.isScanning) }
                 ) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -237,6 +240,42 @@ fun ScanScreen(
                     }, enabled = !uiState.isScanning)
                 }
             }
+        }
+    }
+}
+
+/**
+ * iOS 风格三点下拉刷新指示器
+ */
+@Composable
+private fun IosPullIndicator(isRefreshing: Boolean) {
+    if (!isRefreshing) return
+
+    val dots = remember { listOf(0, 1, 2) }
+    val transition = rememberInfiniteTransition(label = "dots")
+
+    Row(
+        modifier = Modifier.padding(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        dots.forEach { index ->
+            val scale by transition.animateFloat(
+                initialValue = 0.5f,
+                targetValue = 1.2f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(400, delayMillis = index * 150),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "dot$index"
+            )
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .scale(scale)
+                    .clip(CircleShape)
+                    .background(AppleBlue)
+            )
         }
     }
 }
