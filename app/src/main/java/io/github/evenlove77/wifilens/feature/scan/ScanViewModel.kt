@@ -1,37 +1,54 @@
 package io.github.evenlove77.wifilens.feature.scan
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.evenlove77.wifilens.data.database.CryptoManager
+import io.github.evenlove77.wifilens.data.database.VaultSeedData
+import io.github.evenlove77.wifilens.data.database.WifiLensDatabase
 import io.github.evenlove77.wifilens.data.model.WiFiNetwork
 import io.github.evenlove77.wifilens.data.wifi.WifiScanner
+import io.github.evenlove77.wifilens.data.wifi.WifiTester
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+data class TestResult(
+    val ssid: String,
+    val password: String
+)
 
 data class ScanUiState(
     val networks: List<WiFiNetwork> = emptyList(),
     val isScanning: Boolean = false,
     val hasPermission: Boolean = false,
     val isWifiEnabled: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    // 全部测试
+    val isTesting: Boolean = false,
+    val testProgress: String = "",
+    val testCurrentWifi: String = "",
+    val testCurrentIndex: Int = 0,    // 第几个 WiFi
+    val testTotalWifi: Int = 0,
+    val testResults: List<TestResult> = emptyList(),
+    val testComplete: Boolean = false,
 )
 
 class ScanViewModel(application: Application) : AndroidViewModel(application) {
 
     private val scanner = WifiScanner(application)
+    private val db = WifiLensDatabase(application)
     private val _uiState = MutableStateFlow(ScanUiState())
     val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
-
-    companion object {
-        private const val TAG = "ScanViewModel"
-    }
-
-    init {
-        refreshState()
-    }
+    private var testJob: Job? = null
 
     fun refreshState() {
         _uiState.value = _uiState.value.copy(
@@ -40,7 +57,6 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    /** 进入页面时调用 — 自动扫描 */
     fun onScreenEnter() {
         refreshState()
         if (_uiState.value.hasPermission && _uiState.value.isWifiEnabled) {
@@ -50,38 +66,88 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
 
     fun scan() {
         refreshState()
-
         if (!_uiState.value.hasPermission) {
             _uiState.value = _uiState.value.copy(errorMessage = "需要 WiFi 扫描权限")
             return
         }
-
         if (!_uiState.value.isWifiEnabled) {
             _uiState.value = _uiState.value.copy(errorMessage = "WiFi 未开启")
             return
         }
-
-        // 防止重复点击
         if (_uiState.value.isScanning) return
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isScanning = true, errorMessage = null)
-
             try {
                 val result = scanner.scanAsync()
-                Log.d(TAG, "扫描完成: ${result.networks.size} 个网络, error=${result.error}")
                 _uiState.value = _uiState.value.copy(
-                    networks = result.networks,
-                    isScanning = false,
-                    errorMessage = result.error
+                    networks = result.networks, isScanning = false, errorMessage = result.error
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "扫描异常: ${e.message}")
+                _uiState.value = _uiState.value.copy(isScanning = false, errorMessage = "扫描失败: ${e.message}")
+            }
+        }
+    }
+
+    fun startFullTest(context: Context) {
+        val networks = _uiState.value.networks
+        if (networks.isEmpty() || _uiState.value.isTesting) return
+
+        // 加载密码字典
+        val passwords = with(VaultSeedData) { PASSWORDS.toList() }
+
+        _uiState.value = _uiState.value.copy(
+            isTesting = true, testComplete = false,
+            testResults = emptyList(), testProgress = "准备测试...",
+            testCurrentWifi = "", testCurrentIndex = 0, testTotalWifi = networks.size
+        )
+
+        testJob = viewModelScope.launch(Dispatchers.IO) {
+            val results = mutableListOf<TestResult>()
+
+            for ((wifiIndex, network) in networks.withIndex()) {
+                if (!isActive) break
+
                 _uiState.value = _uiState.value.copy(
-                    isScanning = false,
-                    errorMessage = "扫描失败: ${e.message}"
+                    testCurrentWifi = network.ssid,
+                    testCurrentIndex = wifiIndex + 1,
+                    testProgress = "第 ${wifiIndex + 1}/${networks.size} 个 WiFi: ${network.ssid}"
+                )
+
+                // SSID 本身作为第一候选
+                val candidates = listOf(network.ssid) + passwords
+
+                for (password in candidates) {
+                    if (!isActive) break
+
+                    val success = WifiTester.tryPassword(context, network.ssid, password)
+                    if (success) {
+                        results.add(TestResult(network.ssid, password))
+                        break // 找到就跳到下一个 WiFi
+                    }
+                    delay(500)
+                }
+            }
+
+            if (isActive) {
+                _uiState.value = _uiState.value.copy(
+                    isTesting = false, testComplete = true,
+                    testResults = results,
+                    testProgress = if (results.isEmpty()) "测试完成，未发现弱密码" else "找到 ${results.size} 个弱密码"
                 )
             }
         }
+    }
+
+    fun stopTest() {
+        testJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            isTesting = false,
+            testProgress = "已停止测试"
+        )
+    }
+
+    fun dismissTestResults() {
+        _uiState.value = _uiState.value.copy(testComplete = false, testResults = emptyList(), testProgress = "")
     }
 }
