@@ -90,8 +90,8 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startFullTest(context: Context) {
-        // 只测信号好的（RSSI >= -75 dBm，差不多两格以上）
-        val networks = _uiState.value.networks.filter { it.rssi >= -75 }
+        // 只测信号好的（信号 ≥ 40%）
+        val networks = _uiState.value.networks.filter { it.signalPercent >= 40 }
         if (networks.isEmpty() || _uiState.value.isTesting) return
 
         // 加载密码字典
