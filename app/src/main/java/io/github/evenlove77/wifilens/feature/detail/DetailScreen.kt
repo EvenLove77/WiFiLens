@@ -134,34 +134,19 @@ fun DetailScreen(
 
                         Spacer(modifier = Modifier.height(SpacingMD))
 
-                        // 测试按钮
-                        Row(
+                        // 开始测试按钮
+                        Button(
+                            onClick = { viewModel.startTest(context) },
+                            enabled = !uiState.isTesting,
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(SpacingSM)
+                            colors = ButtonDefaults.buttonColors(containerColor = AppleBlue),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            // 开始测试
-                            Button(
-                                onClick = { viewModel.startTest(context) },
-                                enabled = !uiState.isTesting,
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = AppleBlue),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                if (uiState.isTesting) {
-                                    CircularProgressIndicator(color = TextPrimary, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                    Spacer(modifier = Modifier.width(SpacingSM))
-                                }
-                                Text(if (uiState.isTesting) "测试中..." else "逐个测试", color = TextPrimary)
+                            if (uiState.isTesting) {
+                                CircularProgressIndicator(color = TextPrimary, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(SpacingSM))
                             }
-
-                            // 手动选择
-                            OutlinedButton(
-                                onClick = { viewModel.toggleTestCard() },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(if (uiState.showTestCard) "隐藏列表" else "手动选择", color = AppleBlue)
-                            }
+                            Text(if (uiState.isTesting) "测试中..." else "开始测试", color = TextPrimary)
                         }
 
                         // 测试进度
@@ -174,11 +159,7 @@ fun DetailScreen(
                                 trackColor = GlassBorder,
                             )
                             Spacer(modifier = Modifier.height(SpacingSM))
-                            Text(
-                                "${uiState.testIndex} / ${uiState.testTotal}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary
-                            )
+                            Text("${uiState.testIndex} / ${uiState.testTotal}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                         }
 
                         // 测试结果
@@ -190,76 +171,6 @@ fun DetailScreen(
                                 color = if (result.startsWith("密码已找到")) SuccessGreen else TextSecondary,
                                 fontWeight = FontWeight.Medium
                             )
-                        }
-
-                        // 密码候选列表
-                        AnimatedVisibility(visible = uiState.showTestCard || uiState.isTesting) {
-                            Column {
-                                Spacer(modifier = Modifier.height(SpacingMD))
-                                Text("候选密码", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
-                                Spacer(modifier = Modifier.height(SpacingSM))
-
-                                uiState.candidates.take(20).forEachIndexed { index, candidate ->
-                                    val isCurrent = uiState.isTesting && uiState.testIndex == index + 1
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .background(
-                                                if (isCurrent) AppleBlue.copy(alpha = 0.15f) else SurfaceVariant.copy(alpha = 0.3f),
-                                                RoundedCornerShape(8.dp)
-                                            )
-                                            .clickable {
-                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                clipboard.setPrimaryClip(ClipData.newPlainText("password", candidate.password))
-                                                Toast.makeText(context, "已复制: ${candidate.password}", Toast.LENGTH_SHORT).show()
-                                            }
-                                            .padding(horizontal = SpacingMD, vertical = SpacingSM),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        // 编号
-                                        Text(
-                                            "${index + 1}",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = TextTertiary,
-                                            modifier = Modifier.width(28.dp)
-                                        )
-                                        // 密码
-                                        Text(
-                                            candidate.password,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (isCurrent) AppleBlue else TextPrimary,
-                                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        // 标签
-                                        Text(
-                                            candidate.label,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = TextTertiary,
-                                            fontSize = 10.sp
-                                        )
-                                        Spacer(modifier = Modifier.width(SpacingSM))
-                                        Icon(
-                                            Icons.Rounded.ContentCopy,
-                                            "复制",
-                                            tint = TextTertiary,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                    if (index < uiState.candidates.take(20).lastIndex) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                    }
-                                }
-
-                                if (uiState.candidates.size > 20) {
-                                    Spacer(modifier = Modifier.height(SpacingSM))
-                                    Text(
-                                        "... 还有 ${uiState.candidates.size - 20} 个",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = TextTertiary
-                                    )
-                                }
-                            }
                         }
                     }
                 }

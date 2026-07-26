@@ -26,10 +26,9 @@ data class DetailUiState(
     val network: WiFiNetwork? = null,
     val candidates: List<PasswordCandidate> = emptyList(),
     val isTesting: Boolean = false,
-    val testIndex: Int = -1,        // 当前测试第几个
+    val testIndex: Int = -1,
     val testTotal: Int = 0,
-    val testResult: String? = null, // "找到密码: xxx" / "测试完成，未找到弱密码"
-    val showTestCard: Boolean = false
+    val testResult: String? = null
 )
 
 class DetailViewModel(application: Application) : AndroidViewModel(application) {
@@ -51,8 +50,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
             }
             _uiState.value = DetailUiState(
                 network = network,
-                candidates = candidates,
-                showTestCard = false
+                candidates = candidates
             )
         }
     }
@@ -122,10 +120,6 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
         return all
     }
 
-    fun toggleTestCard() {
-        _uiState.value = _uiState.value.copy(showTestCard = !_uiState.value.showTestCard)
-    }
-
     fun startTest(context: android.content.Context) {
         val candidates = _uiState.value.candidates
         if (candidates.isEmpty() || _uiState.value.isTesting) return
@@ -134,7 +128,7 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
 
         _uiState.value = _uiState.value.copy(
             isTesting = true, testIndex = 0, testTotal = candidates.size,
-            testResult = null, showTestCard = true
+            testResult = null
         )
 
         viewModelScope.launch {
