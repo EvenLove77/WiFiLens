@@ -33,44 +33,49 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
-        refreshPermissionState()
+        refreshState()
     }
 
-    fun refreshPermissionState() {
+    fun refreshState() {
         _uiState.value = _uiState.value.copy(
             hasPermission = scanner.hasPermission(),
             isWifiEnabled = scanner.isWifiEnabled()
         )
     }
 
+    /** 进入页面时调用 — 自动扫描 */
+    fun onScreenEnter() {
+        refreshState()
+        if (_uiState.value.hasPermission && _uiState.value.isWifiEnabled) {
+            scan()
+        }
+    }
+
     fun scan() {
-        refreshPermissionState()
+        refreshState()
 
         if (!_uiState.value.hasPermission) {
-            _uiState.value = _uiState.value.copy(
-                errorMessage = "需要 WiFi 扫描权限"
-            )
+            _uiState.value = _uiState.value.copy(errorMessage = "需要 WiFi 扫描权限")
             return
         }
 
         if (!_uiState.value.isWifiEnabled) {
-            _uiState.value = _uiState.value.copy(
-                errorMessage = "WiFi 未开启，请打开 WiFi 后重试"
-            )
+            _uiState.value = _uiState.value.copy(errorMessage = "WiFi 未开启")
             return
         }
+
+        // 防止重复点击
+        if (_uiState.value.isScanning) return
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isScanning = true, errorMessage = null)
 
-            // 演示模式：使用模拟数据
+            // 演示模式
             if (DemoMode.enabled.value) {
-                delay(1200) // 模拟扫描延迟
-                val mockNetworks = MockWiFiNetworks.getNetworks()
+                delay(1200)
                 _uiState.value = _uiState.value.copy(
-                    networks = mockNetworks,
-                    isScanning = false,
-                    errorMessage = null
+                    networks = MockWiFiNetworks.getNetworks(),
+                    isScanning = false
                 )
                 return@launch
             }
@@ -78,7 +83,6 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val result = scanner.scanAsync()
                 Log.d(TAG, "扫描完成: ${result.networks.size} 个网络, error=${result.error}")
-
                 _uiState.value = _uiState.value.copy(
                     networks = result.networks,
                     isScanning = false,

@@ -1,11 +1,10 @@
 package io.github.evenlove77.wifilens.feature.scan
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,12 +18,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.evenlove77.wifilens.core.component.*
 import io.github.evenlove77.wifilens.core.theme.*
@@ -37,35 +35,37 @@ fun ScanScreen(
     viewModel: ScanViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
 
-    // 权限请求 launcher
+    // 权限请求
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val granted = permissions.values.all { it }
-        viewModel.refreshPermissionState()
-        if (granted) {
+        viewModel.refreshState()
+        if (permissions.values.all { it }) {
             viewModel.scan()
         }
     }
 
-    // 首次进入自动检查权限并尝试加载缓存结果
+    // 进入页面自动扫描
     LaunchedEffect(Unit) {
-        viewModel.refreshPermissionState()
-        if (viewModel.uiState.value.hasPermission && viewModel.uiState.value.isWifiEnabled) {
-            viewModel.scan()
-        }
+        viewModel.onScreenEnter()
     }
+
+    // 按钮旋转动画
+    val rotateAnim by rememberInfiniteTransition().animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ), label = "btnRotate"
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundDark)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             // ===== 标题栏 =====
             Row(
                 modifier = Modifier
@@ -83,47 +83,47 @@ fun ScanScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "附近网络",
+                        text = if (uiState.networks.isNotEmpty()) "附近 ${uiState.networks.size} 个网络"
+                        else "附近网络",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
                 }
 
-                // 扫描按钮
-                IconButton(
-                    onClick = {
-                        if (!uiState.hasPermission) {
-                            permissionLauncher.launch(
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    arrayOf(
-                                        Manifest.permission.NEARBY_WIFI_DEVICES,
-                                        Manifest.permission.ACCESS_FINE_LOCATION
-                                    )
-                                } else {
-                                    arrayOf(
-                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION
-                                    )
-                                }
-                            )
-                        } else {
-                            viewModel.scan()
-                        }
-                    },
+                // 扫描按钮（扫描中旋转 + 不可点击）
+                Box(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(AppleBlue, AppleCyan)
+                            brush = Brush.horizontalGradient(
+                                colors = if (uiState.isScanning)
+                                    listOf(TextTertiary, TextTertiary)
+                                else
+                                    listOf(AppleBlue, AppleCyan)
                             )
                         )
+                        .clickable(enabled = !uiState.isScanning) {
+                            if (!uiState.hasPermission) {
+                                val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.ACCESS_FINE_LOCATION)
+                                } else {
+                                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                                }
+                                permissionLauncher.launch(perms)
+                            } else {
+                                viewModel.scan()
+                            }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Refresh,
                         contentDescription = "扫描",
                         tint = TextPrimary,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier
+                            .size(22.dp)
+                            .rotate(if (uiState.isScanning) rotateAnim else 0f)
                     )
                 }
             }
@@ -140,29 +140,18 @@ fun ScanScreen(
                     ballSize = IconSizeScanBall
                 )
 
-                if (uiState.isScanning) {
+                val hintText = when {
+                    uiState.isScanning -> "正在扫描..."
+                    uiState.errorMessage != null && uiState.networks.isEmpty() -> uiState.errorMessage
+                    uiState.networks.isNotEmpty() -> null
+                    else -> "自动扫描中..."
+                }
+                hintText?.let {
                     Text(
-                        text = "正在扫描...",
+                        text = it,
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary,
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                            .padding(bottom = 16.dp)
-                    )
-                } else if (uiState.errorMessage != null && uiState.networks.isEmpty()) {
-                    Text(
-                        text = uiState.errorMessage ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                            .padding(bottom = 16.dp)
-                    )
-                } else if (uiState.networks.isEmpty()) {
-                    Text(
-                        text = "点击右上角扫描附近网络",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextTertiary,
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                            .padding(bottom = 16.dp)
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
                     )
                 }
             }
@@ -171,25 +160,12 @@ fun ScanScreen(
 
             // ===== WiFi 列表 =====
             if (uiState.networks.isNotEmpty()) {
-                Text(
-                    text = "${uiState.networks.size} 个网络",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = TextSecondary,
-                    modifier = Modifier.padding(horizontal = SpacingLG, vertical = SpacingSM)
-                )
-
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        horizontal = SpacingMD,
-                        vertical = SpacingSM
-                    ),
+                    contentPadding = PaddingValues(horizontal = SpacingMD, vertical = SpacingSM),
                     verticalArrangement = Arrangement.spacedBy(SpacingSM)
                 ) {
-                    items(
-                        items = uiState.networks,
-                        key = { it.bssid }
-                    ) { network ->
+                    items(items = uiState.networks, key = { it.bssid }) { network ->
                         WiFiNetworkCard(
                             network = network,
                             onClick = { onNavigateToDetail(network.ssid) }
@@ -197,7 +173,7 @@ fun ScanScreen(
                     }
                     item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
-            } else {
+            } else if (!uiState.isScanning) {
                 // 空状态
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -240,19 +216,11 @@ fun WiFiNetworkCard(
         borderColor = GlassBorder.copy(alpha = 0.3f)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(SpacingMD),
+            modifier = Modifier.fillMaxWidth().padding(SpacingMD),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // WiFi 信号图标
-            WifiSignalIcon(
-                signalLevel = network.signalLevel,
-                size = 28.dp
-            )
-
+            WifiSignalIcon(signalLevel = network.signalLevel, size = 28.dp)
             Spacer(modifier = Modifier.width(SpacingMD))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = network.ssid.ifBlank { "(隐藏网络)" },
@@ -260,15 +228,12 @@ fun WiFiNetworkCard(
                     color = TextPrimary,
                     fontWeight = FontWeight.Medium
                 )
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "${network.band} · ${network.securityType}",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
             }
-
-            // 信号强度百分比
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "${network.rssi} dBm",
@@ -276,7 +241,6 @@ fun WiFiNetworkCard(
                     color = TextSecondary,
                     fontSize = 13.sp
                 )
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "${network.signalPercent}%",
                     style = MaterialTheme.typography.labelSmall,
@@ -288,7 +252,6 @@ fun WiFiNetworkCard(
                     fontWeight = FontWeight.SemiBold
                 )
             }
-
             Spacer(modifier = Modifier.width(SpacingSM))
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,

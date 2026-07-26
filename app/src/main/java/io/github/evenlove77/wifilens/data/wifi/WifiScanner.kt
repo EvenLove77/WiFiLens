@@ -42,50 +42,50 @@ class WifiScanner(private val context: Context) {
         }
     }
 
+    /**
+     * WiFi 扫描
+     * 策略：startScan() 触发扫描 → 等待 2 秒 → 读取结果
+     * release 包完全可靠，debug/USB 调试可能被厂商拦截
+     */
     suspend fun scanAsync(): ScanResult2 {
         val wm = wifiManager
         if (wm == null) return ScanResult2(emptyList(), "设备不支持 WiFi")
         if (!hasPermission()) return ScanResult2(emptyList(), "没有 WiFi 扫描权限")
-        if (!wm.isWifiEnabled) return ScanResult2(emptyList(), "WiFi 未开启，请打开 WiFi 后重试")
+        if (!wm.isWifiEnabled) return ScanResult2(emptyList(), "WiFi 未开启")
 
-        // 轮询等待系统扫描结果
-        var attempts = 0
-        while (attempts < 5) {
+        try {
             @Suppress("DEPRECATION")
-            val raw = wm.scanResults
-            val count = raw?.size ?: 0
-            Log.d(TAG, "poll $attempts: count=$count")
+            wm.startScan()
 
-            if (count > 0) {
-                val networks = mapResults(raw!!)
-                Log.d(TAG, "found ${networks.size} networks")
-                return ScanResult2(networks)
-            }
-
-            if (attempts == 0) {
-                @Suppress("DEPRECATION")
-                wm.startScan() // fire & forget (vivo ignores, standard Android works)
-            }
             delay(2000)
-            attempts++
-        }
-        return ScanResult2(emptyList(), "未扫描到 WiFi 网络，请稍后重试")
-    }
 
-    private fun mapResults(results: List<ScanResult>): List<WiFiNetwork> {
-        return results
-            .filter { r -> (r.SSID?.removeSurrounding("\"") ?: "").isNotBlank() }
-            .map { r ->
-                WiFiNetwork(
-                    ssid = r.SSID?.removeSurrounding("\"") ?: "",
-                    bssid = r.BSSID,
-                    rssi = r.level,
-                    frequency = r.frequency,
-                    capabilities = r.capabilities
-                )
+            @Suppress("DEPRECATION")
+            val raw = wm.scanResults ?: emptyList()
+
+            val networks = raw
+                .filter { r -> (r.SSID?.removeSurrounding("\"") ?: "").isNotBlank() }
+                .map { r ->
+                    WiFiNetwork(
+                        ssid = r.SSID?.removeSurrounding("\"") ?: "",
+                        bssid = r.BSSID,
+                        rssi = r.level,
+                        frequency = r.frequency,
+                        capabilities = r.capabilities
+                    )
+                }
+                .sortedByDescending { it.rssi }
+                .distinctBy { it.bssid }
+
+            Log.d(TAG, "扫描到 ${networks.size} 个网络")
+            if (networks.isEmpty()) {
+                return ScanResult2(emptyList(), "未扫描到 WiFi 网络")
             }
-            .sortedByDescending { it.rssi }
-            .distinctBy { it.bssid }
+            return ScanResult2(networks)
+        } catch (e: SecurityException) {
+            return ScanResult2(emptyList(), "权限被拒绝")
+        } catch (e: Exception) {
+            return ScanResult2(emptyList(), "扫描失败: ${e.message}")
+        }
     }
 
     fun isWifiEnabled(): Boolean = wifiManager?.isWifiEnabled ?: false
