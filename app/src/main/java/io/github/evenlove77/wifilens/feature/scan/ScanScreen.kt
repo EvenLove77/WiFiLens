@@ -50,9 +50,12 @@ fun ScanScreen(
         }
     }
 
-    // 首次进入自动检查权限
+    // 首次进入自动检查权限并尝试加载缓存结果
     LaunchedEffect(Unit) {
         viewModel.refreshPermissionState()
+        if (viewModel.uiState.value.hasPermission && viewModel.uiState.value.isWifiEnabled) {
+            viewModel.scan()
+        }
     }
 
     Box(

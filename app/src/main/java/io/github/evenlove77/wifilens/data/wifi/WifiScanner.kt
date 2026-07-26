@@ -65,30 +65,39 @@ class WifiScanner(private val context: Context) {
         }
 
         return try {
-            // 方式1: 先触发扫描
+            // 策略：先读缓存（系统/WiFi设置/其他App最近的扫描结果）
             @Suppress("DEPRECATION")
-            val scanTriggered = wm.startScan()
-            Log.d(TAG, "startScan triggered=$scanTriggered")
+            var rawResults = wm.scanResults
+            Log.d(TAG, "cached scanResults count=${rawResults?.size ?: 0}")
 
-            // 等待扫描完成
-            delay(3000)
+            // 缓存为空才触发新扫描（避免撞上 Android 14 限频：4次/2分钟）
+            if (rawResults.isNullOrEmpty()) {
+                @Suppress("DEPRECATION")
+                val scanTriggered = wm.startScan()
+                Log.d(TAG, "startScan triggered=$scanTriggered")
 
-            // 读结果
-            @Suppress("DEPRECATION")
-            val rawResults = wm.scanResults
-            Log.d(TAG, "scanResults count=${rawResults?.size ?: 0}")
-            // 打印每条记录用于调试
-            rawResults?.forEachIndexed { i, r ->
-                val sid = r.wifiSsid?.toString()
-                    ?: @Suppress("DEPRECATION") r.SSID.removeSurrounding("\"")
-                Log.d(TAG, "  [$i] SSID='$sid' BSSID=${r.BSSID} level=${r.level}")
+                if (scanTriggered) {
+                    // 等待扫描完成
+                    delay(3000)
+
+                    @Suppress("DEPRECATION")
+                    rawResults = wm.scanResults
+                    Log.d(TAG, "after scan: count=${rawResults?.size ?: 0}")
+                } else {
+                    Log.w(TAG, "扫描被限频，等待30秒后重试")
+                    // 被限频，等一会再试缓存
+                    delay(1500)
+                    @Suppress("DEPRECATION")
+                    rawResults = wm.scanResults
+                }
             }
 
+            @Suppress("DEPRECATION")
             val results = rawResults?.let { mapResults(it) } ?: emptyList()
 
             if (results.isEmpty()) {
                 Log.w(TAG, "扫描结果为空")
-                ScanResult2(emptyList(), "未扫描到 WiFi 网络，请确认周围有 WiFi 信号")
+                ScanResult2(emptyList(), "未扫描到 WiFi 网络，请稍后重试")
             } else {
                 Log.d(TAG, "扫描到 ${results.size} 个 WiFi")
                 ScanResult2(results)
