@@ -6,6 +6,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
 import android.view.HapticFeedbackConstants
+import android.app.Activity
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -61,6 +63,16 @@ fun ScanScreen(
     }
 
     LaunchedEffect(Unit) { viewModel.onScreenEnter() }
+
+    // 测试期间保持屏幕常亮
+    DisposableEffect(uiState.isTesting) {
+        if (uiState.isTesting) {
+            (context as? Activity)?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            (context as? Activity)?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
 
     // ===== 下拉刷新状态 =====
     val pullState = rememberPullRefreshState(
