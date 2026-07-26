@@ -1,6 +1,7 @@
 package io.github.evenlove77.wifilens.feature.scan
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.evenlove77.wifilens.data.model.WiFiNetwork
@@ -24,6 +25,10 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(ScanUiState())
     val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
 
+    companion object {
+        private const val TAG = "ScanViewModel"
+    }
+
     init {
         refreshPermissionState()
     }
@@ -45,17 +50,27 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        if (!_uiState.value.isWifiEnabled) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "WiFi 未开启，请打开 WiFi 后重试"
+            )
+            return
+        }
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isScanning = true, errorMessage = null)
 
             try {
-                val results = scanner.scanAsync()
+                val result = scanner.scanAsync()
+                Log.d(TAG, "扫描完成: ${result.networks.size} 个网络, error=${result.error}")
+
                 _uiState.value = _uiState.value.copy(
-                    networks = results,
+                    networks = result.networks,
                     isScanning = false,
-                    errorMessage = if (results.isEmpty()) "未扫描到 WiFi 网络，请重试" else null
+                    errorMessage = result.error  // null = success, non-null = error message
                 )
             } catch (e: Exception) {
+                Log.e(TAG, "扫描异常: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isScanning = false,
                     errorMessage = "扫描失败: ${e.message}"
