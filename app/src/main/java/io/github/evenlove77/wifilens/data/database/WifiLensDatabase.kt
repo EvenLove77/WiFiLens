@@ -4,8 +4,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import io.github.evenlove77.wifilens.data.model.HistoryItem
-import io.github.evenlove77.wifilens.data.model.HistoryStatus
 import io.github.evenlove77.wifilens.data.model.VaultItem
 
 /**
@@ -29,12 +27,6 @@ class WifiLensDatabase(context: Context) : SQLiteOpenHelper(
         const val COL_VAULT_CREATED = "created_at"
         const val COL_VAULT_UPDATED = "updated_at"
 
-        // History 表
-        const val TABLE_HISTORY = "wifi_history"
-        const val COL_HISTORY_ID = "id"
-        const val COL_HISTORY_SSID = "ssid"
-        const val COL_HISTORY_STATUS = "status"
-        const val COL_HISTORY_TIME = "time"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -49,19 +41,10 @@ class WifiLensDatabase(context: Context) : SQLiteOpenHelper(
                 $COL_VAULT_UPDATED INTEGER NOT NULL
             )
         """)
-        db.execSQL("""
-            CREATE TABLE $TABLE_HISTORY (
-                $COL_HISTORY_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                $COL_HISTORY_SSID TEXT NOT NULL,
-                $COL_HISTORY_STATUS TEXT NOT NULL,
-                $COL_HISTORY_TIME INTEGER NOT NULL
-            )
-        """)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         db.execSQL("DROP TABLE IF EXISTS $TABLE_VAULT")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_HISTORY")
         onCreate(db)
     }
 
@@ -168,36 +151,4 @@ class WifiLensDatabase(context: Context) : SQLiteOpenHelper(
         }
     }
 
-    // ========== History CRUD ==========
-
-    fun getAllHistory(): List<HistoryItem> {
-        val db = readableDatabase
-        val cursor = db.query(TABLE_HISTORY, null, null, null, null, null, "$COL_HISTORY_TIME DESC")
-        val items = mutableListOf<HistoryItem>()
-        cursor.use {
-            while (it.moveToNext()) {
-                items.add(HistoryItem(
-                    id = it.getLong(it.getColumnIndexOrThrow(COL_HISTORY_ID)),
-                    ssid = it.getString(it.getColumnIndexOrThrow(COL_HISTORY_SSID)),
-                    status = try { HistoryStatus.valueOf(it.getString(it.getColumnIndexOrThrow(COL_HISTORY_STATUS))) } catch (_: Exception) { HistoryStatus.FAILED },
-                    time = it.getLong(it.getColumnIndexOrThrow(COL_HISTORY_TIME))
-                ))
-            }
-        }
-        return items
-    }
-
-    fun insertHistory(item: HistoryItem): Long {
-        val db = writableDatabase
-        val values = ContentValues().apply {
-            put(COL_HISTORY_SSID, item.ssid)
-            put(COL_HISTORY_STATUS, item.status.name)
-            put(COL_HISTORY_TIME, item.time)
-        }
-        return db.insert(TABLE_HISTORY, null, values)
-    }
-
-    fun deleteAllHistory() {
-        writableDatabase.delete(TABLE_HISTORY, null, null)
-    }
 }
