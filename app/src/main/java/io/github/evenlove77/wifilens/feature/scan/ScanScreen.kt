@@ -9,8 +9,9 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -210,27 +211,27 @@ fun ScanScreen(
 
             // ===== 主内容区 =====
             if (uiState.networks.isNotEmpty()) {
-                // 手动下拉刷新：跟踪偏移 + 列表跟随手指
+                val listState = rememberLazyListState()
                 var pullOffset by remember { mutableStateOf(0f) }
-                val threshold = 100f
+                val threshold = 120f
                 val maxPull = 200f
+                val atTop = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
 
                 val pullConnection = remember {
                     object : NestedScrollConnection {
                         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                            // 列表在顶部且继续下拉时，消费滚动转为下拉偏移
-                            if (source == NestedScrollSource.UserInput && available.y < 0 && pullOffset > 0) {
-                                val consumed = available.y
-                                pullOffset = (pullOffset + consumed).coerceIn(0f, maxPull)
-                                return Offset(0f, consumed)
+                            // 回弹中：消费向上滚动来减少 offset
+                            if (pullOffset > 0 && available.y > 0) {
+                                pullOffset = (pullOffset - available.y).coerceAtLeast(0f)
+                                return available
                             }
                             return Offset.Zero
                         }
 
                         override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                            // 列表到顶后继续下拉
+                            // LazyColumn 到顶后，剩余的下拉量转为 pullOffset
                             if (source == NestedScrollSource.UserInput && available.y < 0) {
-                                pullOffset = (pullOffset - available.y * 0.5f).coerceIn(0f, maxPull)
+                                pullOffset = (pullOffset - available.y * 0.4f).coerceIn(0f, maxPull)
                                 return Offset(0f, -available.y)
                             }
                             return Offset.Zero
@@ -259,22 +260,17 @@ fun ScanScreen(
                 }
 
                 Box(modifier = Modifier.weight(1f).nestedScroll(pullConnection)) {
-                    // 下拉指示器
-                    if (pullOffset > 8f || uiState.isScanning) {
+                    // iOS 圆点指示器
+                    if ((atTop && pullOffset > 8f) || uiState.isScanning) {
                         Box(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.TopCenter) {
                             if (uiState.isScanning) {
                                 IosPullIndicator(isRefreshing = true)
                             } else {
-                                Row(
-                                    modifier = Modifier.padding(4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(4.dp)) {
                                     repeat(3) {
                                         Box(
-                                            modifier = Modifier
-                                                .size(6.dp)
-                                                .clip(CircleShape)
-                                                .background(AppleBlue.copy(alpha = (pullOffset / threshold).coerceIn(0.2f, 1f)))
+                                            modifier = Modifier.size(6.dp).clip(CircleShape)
+                                                .background(AppleBlue.copy(alpha = (pullOffset / threshold).coerceIn(0.15f, 1f)))
                                         )
                                     }
                                 }
@@ -282,42 +278,30 @@ fun ScanScreen(
                         }
                     }
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { translationY = pullOffset }
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = SpacingMD, vertical = 2.dp),
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize().graphicsLayer { translationY = pullOffset },
+                        contentPadding = PaddingValues(horizontal = SpacingMD, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(SpacingSM)
                     ) {
-                        uiState.networks.forEachIndexed { index, network ->
+                        items(uiState.networks.size, key = { uiState.networks[it].bssid }) { index ->
+                            val network = uiState.networks[index]
                             if (allCardsShown) {
-                                WiFiNetworkCard(
-                                    network = network,
-                                    enabled = !uiState.isScanning,
-                                    onClick = {
-                                        onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
-                                    }
-                                )
+                                WiFiNetworkCard(network = network, enabled = !uiState.isScanning, onClick = {
+                                    onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
+                                })
                             } else {
                                 androidx.compose.animation.AnimatedVisibility(
                                     visible = index < visibleCount,
-                                    enter = slideInVertically(
-                                        animationSpec = spring(dampingRatio = 0.55f, stiffness = 400f),
-                                        initialOffsetY = { -it }
-                                    ) + fadeIn(animationSpec = tween(250))
+                                    enter = slideInVertically(spring(dampingRatio = 0.55f, stiffness = 400f)) { -it } + fadeIn(tween(250))
                                 ) {
-                                    WiFiNetworkCard(
-                                        network = network,
-                                        enabled = !uiState.isScanning,
-                                        onClick = {
-                                            onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
-                                        }
-                                    )
+                                    WiFiNetworkCard(network = network, enabled = !uiState.isScanning, onClick = {
+                                        onNavigateToDetail(network.ssid, network.bssid, network.rssi, network.frequency, network.capabilities)
+                                    })
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(80.dp))
+                        item { Spacer(modifier = Modifier.height(80.dp)) }
                     }
                 }
             } else {
