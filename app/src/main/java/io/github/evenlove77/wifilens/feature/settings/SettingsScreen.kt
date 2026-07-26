@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.evenlove77.wifilens.core.component.GlassCard
 import io.github.evenlove77.wifilens.core.theme.*
+import io.github.evenlove77.wifilens.data.mock.DemoMode
 
 @Composable
 fun SettingsScreen(
@@ -89,6 +90,50 @@ fun SettingsScreen(
                         if (mode != ThemeMode.entries.last()) {
                             SettingDivider()
                         }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(SpacingXL))
+
+            // ===== 演示模式（开发用） =====
+            SectionHeader("开发选项")
+            GlassCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SpacingMD),
+                backgroundColor = SurfaceDark.copy(alpha = 0.6f)
+            ) {
+                Column(modifier = Modifier.padding(SpacingMD)) {
+                    val demoEnabled by DemoMode.enabled.collectAsState()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { DemoMode.setEnabled(!demoEnabled) }
+                            .padding(vertical = SpacingSM),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "演示模式",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "使用模拟 WiFi 数据测试 UI",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                        }
+                        Switch(
+                            checked = demoEnabled,
+                            onCheckedChange = { DemoMode.setEnabled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = TextPrimary,
+                                checkedTrackColor = AppleBlue
+                            )
+                        )
                     }
                 }
             }

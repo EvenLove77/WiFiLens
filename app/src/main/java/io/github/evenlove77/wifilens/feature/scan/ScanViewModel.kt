@@ -4,8 +4,11 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.evenlove77.wifilens.data.mock.DemoMode
+import io.github.evenlove77.wifilens.data.mock.MockWiFiNetworks
 import io.github.evenlove77.wifilens.data.model.WiFiNetwork
 import io.github.evenlove77.wifilens.data.wifi.WifiScanner
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,6 +63,18 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isScanning = true, errorMessage = null)
 
+            // 演示模式：使用模拟数据
+            if (DemoMode.enabled.value) {
+                delay(1200) // 模拟扫描延迟
+                val mockNetworks = MockWiFiNetworks.getNetworks()
+                _uiState.value = _uiState.value.copy(
+                    networks = mockNetworks,
+                    isScanning = false,
+                    errorMessage = null
+                )
+                return@launch
+            }
+
             try {
                 val result = scanner.scanAsync()
                 Log.d(TAG, "扫描完成: ${result.networks.size} 个网络, error=${result.error}")
@@ -67,7 +82,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(
                     networks = result.networks,
                     isScanning = false,
-                    errorMessage = result.error  // null = success, non-null = error message
+                    errorMessage = result.error
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "扫描异常: ${e.message}")
