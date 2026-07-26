@@ -14,13 +14,8 @@ import io.github.evenlove77.wifilens.feature.history.HistoryScreen
 import io.github.evenlove77.wifilens.feature.scan.ScanScreen
 import io.github.evenlove77.wifilens.feature.settings.SettingsScreen
 import io.github.evenlove77.wifilens.feature.vault.VaultScreen
+import java.net.URLDecoder
 
-/**
- * 应用导航图
- * iOS 风格过渡动画：
- * - push: 从右滑入 + fadeIn
- * - pop: 向左滑出 + fadeOut
- */
 @Composable
 fun WiFiLensNavGraph(
     navController: NavHostController,
@@ -32,55 +27,58 @@ fun WiFiLensNavGraph(
         enterTransition = {
             slideInHorizontally(
                 animationSpec = tween(300, easing = FastOutSlowInEasing),
-                initialOffsetX = { it / 4 }  // 从右侧 1/4 屏幕外滑入
+                initialOffsetX = { it / 4 }
             ) + fadeIn(animationSpec = tween(300))
         },
         exitTransition = {
             slideOutHorizontally(
                 animationSpec = tween(300, easing = FastOutSlowInEasing),
-                targetOffsetX = { -it / 4 }  // 向左滑出
+                targetOffsetX = { -it / 4 }
             ) + fadeOut(animationSpec = tween(300))
         },
         popEnterTransition = {
             slideInHorizontally(
                 animationSpec = tween(300, easing = FastOutSlowInEasing),
-                initialOffsetX = { -it / 4 }  // 从左侧滑入（返回时）
+                initialOffsetX = { -it / 4 }
             ) + fadeIn(animationSpec = tween(300))
         },
         popExitTransition = {
             slideOutHorizontally(
                 animationSpec = tween(300, easing = FastOutSlowInEasing),
-                targetOffsetX = { it / 4 }    // 向右滑出（返回时）
+                targetOffsetX = { it / 4 }
             ) + fadeOut(animationSpec = tween(300))
         }
     ) {
         composable(route = Screen.Scan.route) {
-            ScanScreen(onNavigateToDetail = { ssid ->
-                navController.navigate(Screen.Detail.createRoute(ssid))
+            ScanScreen(onNavigateToDetail = { ssid, bssid, rssi, freq, caps ->
+                navController.navigate(Screen.Detail.createRoute(ssid, bssid, rssi, freq, caps))
             })
         }
 
-        composable(route = Screen.Vault.route) {
-            VaultScreen()
-        }
-
-        composable(route = Screen.History.route) {
-            HistoryScreen()
-        }
-
-        composable(route = Screen.Settings.route) {
-            SettingsScreen()
-        }
+        composable(route = Screen.Vault.route) { VaultScreen() }
+        composable(route = Screen.History.route) { HistoryScreen() }
+        composable(route = Screen.Settings.route) { SettingsScreen() }
 
         composable(
             route = Screen.Detail.route,
             arguments = listOf(
-                navArgument("ssid") { type = NavType.StringType }
+                navArgument("ssid") { type = NavType.StringType },
+                navArgument("bssid") { type = NavType.StringType },
+                navArgument("rssi") { type = NavType.IntType },
+                navArgument("frequency") { type = NavType.IntType },
+                navArgument("capabilities") { type = NavType.StringType },
             )
-        ) { backStackEntry ->
-            val ssid = backStackEntry.arguments?.getString("ssid") ?: ""
+        ) { entry ->
+            val ssid = URLDecoder.decode(entry.arguments?.getString("ssid") ?: "", "UTF-8")
+            val bssid = URLDecoder.decode(entry.arguments?.getString("bssid") ?: "", "UTF-8")
+            val rssi = entry.arguments?.getInt("rssi") ?: 0
+            val frequency = entry.arguments?.getInt("frequency") ?: 0
+            val capabilities = URLDecoder.decode(entry.arguments?.getString("capabilities") ?: "", "UTF-8")
+
             DetailScreen(
-                ssid = ssid,
+                ssid = ssid, bssid = bssid,
+                rssi = rssi, frequency = frequency,
+                capabilities = capabilities,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

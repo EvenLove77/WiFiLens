@@ -34,10 +34,13 @@ class VaultViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadItems() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                // 首次启动：自动填充弱密码库
+                // 首次启动：自动填充弱密码字典
                 if (!db.hasVaultData()) {
-                    val seed = VaultSeedData.getSeedData().map {
-                        it.copy(password = CryptoManager.encrypt(it.password))
+                    val seed = VaultSeedData.PASSWORDS.map { password ->
+                        VaultItem(
+                            ssid = "", password = CryptoManager.encrypt(password),
+                            remark = "", category = "弱密码字典"
+                        )
                     }
                     db.insertAllVault(seed)
                 }

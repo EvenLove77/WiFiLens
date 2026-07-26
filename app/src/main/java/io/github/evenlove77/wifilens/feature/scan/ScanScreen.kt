@@ -31,7 +31,7 @@ import io.github.evenlove77.wifilens.data.model.WiFiNetwork
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanScreen(
-    onNavigateToDetail: (String) -> Unit,
+    onNavigateToDetail: (ssid: String, bssid: String, rssi: Int, frequency: Int, capabilities: String) -> Unit,
     viewModel: ScanViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -168,7 +168,13 @@ fun ScanScreen(
                     items(items = uiState.networks, key = { it.bssid }) { network ->
                         WiFiNetworkCard(
                             network = network,
-                            onClick = { onNavigateToDetail(network.ssid) }
+                            onClick = {
+                                onNavigateToDetail(
+                                    network.ssid, network.bssid,
+                                    network.rssi, network.frequency,
+                                    network.capabilities
+                                )
+                            }
                         )
                     }
                     item { Spacer(modifier = Modifier.height(80.dp)) }
