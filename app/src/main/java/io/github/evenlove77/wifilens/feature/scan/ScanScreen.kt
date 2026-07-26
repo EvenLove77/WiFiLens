@@ -9,8 +9,8 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -223,18 +223,14 @@ fun ScanScreen(
                     modifier = Modifier.weight(1f),
                     indicator = { IosPullIndicator(isRefreshing = uiState.isScanning) }
                 ) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = SpacingMD, vertical = 2.dp),
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = SpacingMD, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(SpacingSM)
                     ) {
-                        itemsIndexed(
-                            items = uiState.networks,
-                            key = { _, network -> network.bssid }
-                        ) { index, network ->
-                            val cardModifier = Modifier.let { m ->
-                                if (uiState.isScanning) m else m // 刷新中不允许点击
-                            }
+                        uiState.networks.forEachIndexed { index, network ->
                             if (allCardsShown) {
                                 WiFiNetworkCard(
                                     network = network,
@@ -261,7 +257,7 @@ fun ScanScreen(
                                 }
                             }
                         }
-                        item { Spacer(modifier = Modifier.height(80.dp)) }
+                        Spacer(modifier = Modifier.height(80.dp))
                     }
                 }
             } else {
