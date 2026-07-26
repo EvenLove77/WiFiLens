@@ -10,10 +10,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import io.github.evenlove77.wifilens.feature.detail.DetailScreen
-import io.github.evenlove77.wifilens.feature.history.HistoryScreen
 import io.github.evenlove77.wifilens.feature.scan.ScanScreen
 import io.github.evenlove77.wifilens.feature.settings.SettingsScreen
-import io.github.evenlove77.wifilens.feature.vault.VaultScreen
 import java.net.URLDecoder
 
 @Composable
@@ -25,40 +23,24 @@ fun WiFiLensNavGraph(
         navController = navController,
         startDestination = startDestination,
         enterTransition = {
-            slideInHorizontally(
-                animationSpec = tween(300, easing = FastOutSlowInEasing),
-                initialOffsetX = { it / 4 }
-            ) + fadeIn(animationSpec = tween(300))
+            slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { it / 4 } + fadeIn(tween(300))
         },
         exitTransition = {
-            slideOutHorizontally(
-                animationSpec = tween(300, easing = FastOutSlowInEasing),
-                targetOffsetX = { -it / 4 }
-            ) + fadeOut(animationSpec = tween(300))
+            slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { -it / 4 } + fadeOut(tween(300))
         },
         popEnterTransition = {
-            slideInHorizontally(
-                animationSpec = tween(300, easing = FastOutSlowInEasing),
-                initialOffsetX = { -it / 4 }
-            ) + fadeIn(animationSpec = tween(300))
+            slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { -it / 4 } + fadeIn(tween(300))
         },
         popExitTransition = {
-            slideOutHorizontally(
-                animationSpec = tween(300, easing = FastOutSlowInEasing),
-                targetOffsetX = { it / 4 }
-            ) + fadeOut(animationSpec = tween(300))
+            slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { it / 4 } + fadeOut(tween(300))
         }
     ) {
-        composable(route = Screen.Scan.route) {
+        composable(Screen.Scan.route) {
             ScanScreen(onNavigateToDetail = { ssid, bssid, rssi, freq, caps ->
                 navController.navigate(Screen.Detail.createRoute(ssid, bssid, rssi, freq, caps))
             })
         }
-
-        composable(route = Screen.Vault.route) { VaultScreen() }
-        composable(route = Screen.History.route) { HistoryScreen() }
-        composable(route = Screen.Settings.route) { SettingsScreen() }
-
+        composable(Screen.Settings.route) { SettingsScreen() }
         composable(
             route = Screen.Detail.route,
             arguments = listOf(
@@ -74,13 +56,7 @@ fun WiFiLensNavGraph(
             val rssi = entry.arguments?.getInt("rssi") ?: 0
             val frequency = entry.arguments?.getInt("frequency") ?: 0
             val capabilities = URLDecoder.decode(entry.arguments?.getString("capabilities") ?: "", "UTF-8")
-
-            DetailScreen(
-                ssid = ssid, bssid = bssid,
-                rssi = rssi, frequency = frequency,
-                capabilities = capabilities,
-                onNavigateBack = { navController.popBackStack() }
-            )
+            DetailScreen(ssid, bssid, rssi, frequency, capabilities, onNavigateBack = { navController.popBackStack() })
         }
     }
 }

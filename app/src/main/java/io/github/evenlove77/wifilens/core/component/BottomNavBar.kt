@@ -16,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,15 +30,9 @@ data class BottomNavItem(
 
 val bottomNavItems = listOf(
     BottomNavItem("扫描", Icons.Rounded.WifiFind, "scan"),
-    BottomNavItem("密码库", Icons.Rounded.Key, "vault"),
-    BottomNavItem("历史", Icons.Rounded.History, "history"),
     BottomNavItem("设置", Icons.Rounded.Settings, "settings"),
 )
 
-/**
- * 自定义 Apple 风底部导航栏
- * 毛玻璃背景，选中项蓝青色高亮 + 弹簧动画
- */
 @Composable
 fun AppleBottomNavBar(
     currentRoute: String?,
@@ -56,7 +49,7 @@ fun AppleBottomNavBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = 40.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -76,7 +69,7 @@ fun AppleBottomNavBar(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) { onItemClick(item.route) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
                 ) {
                     Icon(
                         imageVector = item.icon,
@@ -92,7 +85,6 @@ fun AppleBottomNavBar(
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         letterSpacing = 0.sp
                     )
-                    // 选中指示点
                     if (selected) {
                         Spacer(modifier = Modifier.height(3.dp))
                         Box(

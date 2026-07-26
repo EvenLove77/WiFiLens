@@ -4,11 +4,8 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.evenlove77.wifilens.data.mock.DemoMode
-import io.github.evenlove77.wifilens.data.mock.MockWiFiNetworks
 import io.github.evenlove77.wifilens.data.model.WiFiNetwork
 import io.github.evenlove77.wifilens.data.wifi.WifiScanner
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -69,16 +66,6 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isScanning = true, errorMessage = null)
-
-            // 演示模式
-            if (DemoMode.enabled.value) {
-                delay(1200)
-                _uiState.value = _uiState.value.copy(
-                    networks = MockWiFiNetworks.getNetworks(),
-                    isScanning = false
-                )
-                return@launch
-            }
 
             try {
                 val result = scanner.scanAsync()
