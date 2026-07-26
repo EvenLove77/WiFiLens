@@ -29,16 +29,7 @@ object VaultSeedData {
         "abc123456", "welcome123", "iloveyou1",
         "passw0rd", "hello1234",
 
-        // 拼音 + 数字
-        "woaini1314", "mima123456", "wifi123456",
-        "zhongguo88", "beijing88", "dianhua888",
-        "jia688888", "xingming88",
-
-        // 键盘模式
-        "1qaz2wsx3edc", "1q2w3e4r5t", "qazwsxedc",
-
-        // 品牌定制
-        "tplink123", "huawei123", "xiaomi123",
+        // 运营商默认
         "a12345678", "cmcc12345",
     )
 }
