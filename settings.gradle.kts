@@ -26,5 +26,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "WIFILens"
+rootProject.name = "WiFiLens"
 include(":app")
